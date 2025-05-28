@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Screenshot Verwerker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .drop-zone {
+            border-radius: 0.5rem; padding: 1.5rem; 
+            text-align: center; transition: background-color 0.2s ease;
+            display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; min-height: 120px; 
+        }
+        .loader {
+            border: 5px solid #f3f3f3; border-top: 5px solid #3498db;
+            border-radius: 50%; width: 40px; height: 40px; 
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none; }
+        canvas { display: block; max-width: 100%; height: auto; }
+        .img-preview-container, .output-container { max-width: 100%; overflow-x: auto; }
+        .img-preview-container img, .output-container img {
+            max-width: 100%; height: auto; display: block; margin: 0 auto; 
+            border-radius: 0.375rem; /* rounded-md */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* shadow-sm */
+        }
+        .btn {
+            font-weight: 600; 
+            padding: 0.75rem 1rem; 
+            border-radius: 0.5rem; 
+            transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .btn-secondary { 
+            background-color: #10b981; 
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #059669; 
+        }
+        .btn-tertiary { 
+            background-color: #4285F4; 
+            color: white;
+        }
+        .btn-tertiary:hover {
+            background-color: #3578E5;
+        }
+        .w-full-btn {
+             width: 100%;
+        }
+        #startLocationQuerySection label {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #startLocationQuerySection label:hover {
+            background-color: #f0f0f0;
+        }
+        #startLocationQuerySection input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        /* Modal Styling */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; 
+        }
+        .modal-content {
+            z-index: 50;
+        }
+
+    </style>
+</head>
+<body class="bg-white min-h-screen flex flex-col items-center justify-center p-3 sm:p-4">
+
+    <div class="p-4 sm:p-6 md:p-8 rounded-lg shadow-xl w-full max-w-2xl" style="background-color: rgb(248, 240, 194);">
+        <div class="flex justify-center items-center mb-4">
+            <img src="https://hizkia.com/app/uploads/2023/03/HIZKIA-1024x768.jpg" alt="Hizkia Logo" class="max-h-32 sm:max-h-40">
+        </div>
+        <header class="mb-6 sm:mb-8">
+            <h1 class="text-lg sm:text-xl md:text-2xl font-semibold text-center text-gray-800">Planning Verwerker</h1>
+        </header>
+
+        <main>
+            <section id="inputSection" class="mb-6 space-y-4">
+                <div>
+                    <div id="dropZone" class="drop-zone cursor-pointer border-2 border-dashed border-black" style="background-color: rgb(254, 252, 232);" onmouseover="this.style.backgroundColor='rgb(252, 248, 212)'" onmouseout="this.style.backgroundColor='rgb(254, 252, 232)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-cloud-arrow-up-fill text-black mb-2" viewBox="0 0 16 16">
+                            <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2m2.354 5.146a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                        <p class="text-black text-sm sm:text-base">Sleep screenshot hierheen of klik</p>
+                        <input type="file" id="fileInput" class="hidden" accept="image/png, image/jpeg, image/webp, image/gif">
+                    </div>
+                </div>
+                
+                <div class="relative flex items-center">
+                    <div class="flex-grow border-t" style="border-color: rgb(250, 245, 205);"></div>
+                    <span class="flex-shrink mx-4 text-black text-sm">OF</span>
+                    <div class="flex-grow border-t" style="border-color: rgb(250, 245, 205);"></div>
+                </div>
+
+                <div>
+                    <button id="pasteFromClipboardButton" type="button" class="btn text-black w-full-btn text-sm sm:text-base" style="background-color: rgb(245, 229, 157);" onmouseover="this.style.backgroundColor='rgb(242, 220, 136)'" onmouseout="this.style.backgroundColor='rgb(245, 229, 157)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard-plus-fill inline-block mr-2 align-text-bottom" viewBox="0 0 16 16">
+                            <path d="M6.5 0A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0zm3 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1A2.5 2.5 0 0 1 9.5 5h-3A2.5 2.5 0 0 1 4 2.5zM8.5 8.5V7a.5.5 0 0 0-1 0v1.5H6a.5.5 0 0 0 0 1h1.5V11a.5.5 0 0 0 1 0V9.5H10a.5.5 0 0 0 0-1z"/>
+                        </svg>
+                        Plak Afbeelding
+                    </button>
+                    <p id="clipboardError" class="text-red-500 text-xs sm:text-sm mt-1 hidden"></p>
+                </div>
+            </section>
+
+            <section id="imagePreviewContainer" class="img-preview-container mb-4 hidden">
+                <h2 class="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Originele Afbeelding:</h2>
+                <img id="imagePreview" src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Voorbeeld" alt="Voorbeeld van geüploade afbeelding" class="rounded-md border border-gray-300 shadow-sm"/>
+            </section>
+            
+            <div id="loader" class="loader hidden"></div>
+            
+            <div id="messageArea" class="text-center my-3 sm:my-4 min-h-[40px]">
+                <p id="statusMessage" class="text-gray-700 text-sm sm:text-base"></p>
+                <p id="errorMessage" class="text-red-600 font-semibold text-sm sm:text-base"></p>
+            </div>
+
+            <section id="outputSection" class="output-container hidden">
+                <h2 class="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Verwerkte Planning:</h2>
+                <img id="outputImage" src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Resultaat" alt="Gegenereerde planning afbeelding" class="rounded-md border border-gray-300 shadow-sm"/>
+                <div class="mt-4 grid grid-cols-1 gap-2"> 
+                    <button id="openRouteButton" type="button" class="btn btn-tertiary w-full-btn text-sm sm:text-base hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt-fill inline-block mr-2 align-text-bottom" viewBox="0 0 16 16">
+                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/>
+                        </svg>
+                        Open Route in Google Maps
+                    </button>
+                </div>
+            </section>
+
+            <section id="startLocationQuerySection" class="mt-6 p-4 border border-gray-300 rounded-lg hidden" style="background-color: rgb(254, 252, 232);">
+                <h3 class="text-md font-semibold mb-3 text-black">Kies startpunt voor Google Maps route:</h3>
+                <div id="startLocationOptions">
+                    <label for="depotDH">
+                        <input type="radio" name="startLocation" id="depotDH" value="DEPOT_DH"> Start/Eind: Depot Den Haag (Wolga 16)
+                    </label>
+                    <label for="depotAMS">
+                        <input type="radio" name="startLocation" id="depotAMS" value="DEPOT_AMS"> Start/Eind: Depot Amsterdam (Scharenburg 14)
+                    </label>
+                    <label for="asPlanned">
+                        <input type="radio" name="startLocation" id="asPlanned" value="AS_PLANNED"> Route zoals in planning (geen vast depot)
+                    </label>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button id="confirmStartLocationButton" type="button" class="btn btn-secondary flex-grow">Bevestig & Open Maps</button>
+                    <button id="cancelStartLocationButton" type="button" class="btn bg-gray-300 hover:bg-gray-400 text-black flex-grow">Annuleren</button>
+                </div>
+            </section>
+        </main>
+        <footer class="mt-8 text-center text-xs text-gray-500">
+            <p>© <span id="currentYear"></span> Planning Verwerker</p>
+        </footer>
+    </div>
+
+    <div id="routeWarningModal" class="fixed inset-0 modal-overlay flex items-center justify-center hidden">
+        <div class="modal-content p-5 border w-11/12 md:max-w-md lg:max-w-lg shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-3">Route Waarschuwing</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="modalWarningText" class="text-sm text-gray-600"></p>
+                </div>
+                <div class="items-center px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:space-x-2">
+                    <button id="modalProceedButton" type="button" class="btn btn-tertiary w-full sm:w-auto">
+                        Doorgaan naar Google Maps
+                    </button>
+                    <button id="modalCancelButton" type="button" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 w-full sm:w-auto">
+                        Annuleren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // DOM Elementen
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const pasteFromClipboardButton = document.getElementById('pasteFromClipboardButton');
+        const clipboardError = document.getElementById('clipboardError');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const loader = document.getElementById('loader');
+        const statusMessage = document.getElementById('statusMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const outputSection = document.getElementById('outputSection');
+        const outputImage = document.getElementById('outputImage');
+        const openRouteButton = document.getElementById('openRouteButton');
+        const startLocationQuerySection = document.getElementById('startLocationQuerySection');
+        const confirmStartLocationButton = document.getElementById('confirmStartLocationButton');
+        const cancelStartLocationButton = document.getElementById('cancelStartLocationButton');
+        const routeWarningModal = document.getElementById('routeWarningModal');
+        const modalWarningText = document.getElementById('modalWarningText');
+        const modalProceedButton = document.getElementById('modalProceedButton');
+        const modalCancelButton = document.getElementById('modalCancelButton');
+
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Globale variabelen
+        let currentPlanningData = null;
+        let routeParamsForModal = null; 
+
+        // Constanten
+        const RENDER_SCALE_FACTOR = 2; 
+        const FONT_SIZE = 18 * RENDER_SCALE_FACTOR;
+        const FONT_FAMILY = `'Inter', Arial, sans-serif`; 
+        const PAD_X = 12 * RENDER_SCALE_FACTOR; 
+        const PAD_Y = 8 * RENDER_SCALE_FACTOR;  
+        const GRID_W = 1 * RENDER_SCALE_FACTOR; 
+        const COLORS = { 
+            Laden: { fill: 'rgb(191, 219, 254)', text: 'rgb(29, 78, 216)' },     // Lichtblauw / Donkerblauw
+            Lossen: { fill: 'rgb(254, 226, 202)', text: 'rgb(194, 65, 12)' },    // Lichtoranje / Donkeroranje
+            Inpakken: { fill: 'rgb(209, 250, 229)', text: 'rgb(4, 120, 87)' },   // Licht mintgroen / Donkergroen
+            Header: { fill: 'rgb(229, 231, 235)', text: 'rgb(31, 41, 55)' }      // Lichtgrijs / Donkergrijs
+        };
+        const COLS_ORDER = ["Tijd", "Actie", "Locatie", "Adres", "Projectnummer"];
+        const JPEG_QUALITY = 0.95; 
+        const apiKey = "AIzaSyB6RUWCzEEaFppIvU6FFL5mL8kiee_olD4"; // BELANGRIJK: Vul hier je Gemini API sleutel in, of laat leeg als deze via een andere methode wordt verstrekt.
+        const DEPOT_DEN_HAAG_FULL = "Wolga 16, DEN HAAG, 2491 BJ, NL"; 
+        const DEPOT_AMSTERDAM_FULL = "Scharenburg 14, AMSTERDAM, 1046 BA, NL";
+
+        // --- Event Listeners ---
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (event) => event.preventDefault());
+        dropZone.addEventListener('dragleave', () => {});
+        dropZone.addEventListener('drop', (event) => { 
+            event.preventDefault(); 
+            const files = event.dataTransfer.files;
+            if (files.length > 0) handleUploadedFile(files[0]);
+        });
+        fileInput.addEventListener('change', (event) => {
+            const files = event.target.files;
+            if (files.length > 0) handleUploadedFile(files[0]);
+        });
+
+        pasteFromClipboardButton.addEventListener('click', async (event) => { 
+            event.preventDefault(); 
+            event.stopPropagation(); 
+            clearMessages(); 
+            clipboardError.classList.add('hidden');
+            try {
+                if (!navigator.clipboard || !navigator.clipboard.read) {
+                    clipboardError.textContent = 'Klembord API niet ondersteund of geen toestemming (HTTPS vereist). Probeer een bestand te uploaden.';
+                    clipboardError.classList.remove('hidden'); 
+                    return;
+                }
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                    const imageType = item.types.find(type => type.startsWith('image/'));
+                    if (imageType) {
+                        const blob = await item.getType(imageType);
+                        const reader = new FileReader();
+                        reader.onloadend = () => handlePastedOrUploadedImageData(reader.result, 'clipboard_image.' + imageType.split('/')[1]);
+                        reader.readAsDataURL(blob); 
+                        return; 
+                    }
+                }
+                clipboardError.textContent = 'Geen afbeelding gevonden op het klembord.';
+                clipboardError.classList.remove('hidden');
+            } catch (err) {
+                console.error('Error reading from clipboard:', err);
+                if (err.name === 'NotAllowedError' || err.message.toLowerCase().includes('permission denied')) {
+                     clipboardError.textContent = `Toestemming voor klembord geweigerd. Controleer browserinstellingen.`;
+                } else {
+                    clipboardError.textContent = `Fout bij lezen klembord: ${err.message}. Probeer een bestand te uploaden.`;
+                }
+                clipboardError.classList.remove('hidden');
+            }
+        });
+        
+        // --- Hoofdfuncties ---
+        function handleUploadedFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Ongeldig bestandstype. Selecteer een PNG, JPG, WebP of GIF afbeelding.'); 
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => handlePastedOrUploadedImageData(e.target.result, file.name); 
+            reader.readAsDataURL(file);
+        }
+        
+        function handlePastedOrUploadedImageData(dataUrl, imageName) {
+            clearOutput(); 
+            clearMessages();
+            imagePreviewContainer.classList.remove('hidden');
+            imagePreview.src = dataUrl; 
+            imagePreview.onerror = () => { 
+                imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Preview+Error';
+                showError('Kon afbeelding niet laden voor preview.');
+            };
+            currentPlanningData = null; 
+            openRouteButton.classList.add('hidden');
+            routeWarningModal.classList.add('hidden'); 
+            startLocationQuerySection.classList.add('hidden');
+            processImage(dataUrl, imageName);
+        }
+
+        // --- UI Hulpfuncties ---
+        function showLoader(show) { loader.classList.toggle('hidden', !show); }
+        function showStatus(message) { statusMessage.textContent = message; errorMessage.textContent = ''; }
+        function showError(message) { 
+            errorMessage.textContent = message; statusMessage.textContent = ''; console.error("Error:", message);
+        }
+        function clearMessages() { 
+            statusMessage.textContent = ''; errorMessage.textContent = '';
+            clipboardError.classList.add('hidden'); 
+        }
+        function clearOutput() { 
+            outputSection.classList.add('hidden'); 
+            outputImage.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Resultaat'; 
+            outputImage.onerror = () => outputImage.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Error';
+            openRouteButton.classList.add('hidden');
+            routeWarningModal.classList.add('hidden'); 
+            startLocationQuerySection.classList.add('hidden');
+            imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Voorbeeld'; 
+            imagePreview.onerror = () => imagePreview.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Error';
+            imagePreviewContainer.classList.add('hidden');
+            currentPlanningData = null;
+        }
+        
+        // --- Tekst Formattering & Normalisatie ---
+        function titleCaseWord(word) {
+            if (!word) return "";
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }
+
+        function formatPostcode(postcodeStr) {
+            if (!postcodeStr || typeof postcodeStr !== 'string') return "-";
+            let pc = postcodeStr.toUpperCase().replace(/\s/g, ''); 
+            if (pc.length === 6 && pc.match(/^\d{4}[A-Z]{2}$/)) {
+                return `${pc.substring(0, 4)} ${pc.substring(4)}`; 
+            }
+            return pc; 
+        }
+        
+        function normalizeAddressForCompare(address) {
+            if (!address || typeof address !== 'string') return "";
+            return address.toLowerCase().replace(/[\W_]+/g, ''); 
+        }
+        
+        function normalizeAndFormatAddress(addressString, locationName = "") {
+            if (!addressString || typeof addressString !== 'string') return "";
+            let str = addressString.trim();
+            const locationNameLower = (locationName || "").toLowerCase();
+            const addressStringLower = str.toLowerCase();
+
+            if ((locationNameLower.includes("hizkia") && (locationNameLower.includes("den haag") || locationNameLower.includes("hizdh"))) || addressStringLower.includes("wolga 16")) {
+                return DEPOT_DEN_HAAG_FULL;
+            }
+            if ((locationNameLower.includes("hizkia") && locationNameLower.includes("amsterdam")) || addressStringLower.includes("scharenburg 14")) {
+                return DEPOT_AMSTERDAM_FULL;
+            }
+            
+            const normalizedInput = normalizeAddressForCompare(str);
+            if (normalizedInput === normalizeAddressForCompare(DEPOT_DEN_HAAG_FULL)) return DEPOT_DEN_HAAG_FULL;
+            if (normalizedInput === normalizeAddressForCompare(DEPOT_AMSTERDAM_FULL)) return DEPOT_AMSTERDAM_FULL;
+            
+            const parts = str.split(',').map(part => part.trim());
+            let straatNr = "", plaats = "", postcode = "", land = "NL";
+
+            if (parts.length === 1 && parts[0] !== "" && !parts[0].match(/\d/)) { 
+                plaats = parts[0].toUpperCase();
+                if (locationName && locationName !== "-") {
+                    if (!locationName.toUpperCase().includes(plaats)) {
+                        straatNr = titleCaseWord(locationName); 
+                    } else { 
+                        straatNr = titleCaseWord(locationName);
+                        plaats = ""; 
+                    }
+                } else {
+                    straatNr = "-"; 
+                }
+                postcode = "-";
+            } else if (parts.length >= 3) { 
+                straatNr = parts[0].split(' ').map(w => w.length > 2 ? titleCaseWord(w) : w).join(' '); 
+                plaats = parts[1].toUpperCase(); 
+                postcode = formatPostcode(parts[2]); 
+                if (parts.length > 3 && parts[3].length === 2 && /^[A-Z]{2}$/.test(parts[3])) {
+                    land = parts[3].toUpperCase();
+                } else if (parts.length > 3) { 
+                     straatNr += `, ${parts.slice(3).join(', ')}`;
+                }
+            } else if (parts.length === 2) { 
+                straatNr = parts[0].split(' ').map(w => w.length > 2 ? titleCaseWord(w) : w).join(' ');
+                plaats = parts[1].toUpperCase(); 
+                postcode = "-"; 
+            } else if (parts.length === 1 && parts[0] !== "") { 
+                const pcMatch = str.match(/(\d{4})\s?([A-Z]{2})/i);
+                if (pcMatch) {
+                    postcode = `${pcMatch[1]} ${pcMatch[2].toUpperCase()}`;
+                    plaats = "-"; 
+                    straatNr = "-";
+                } else { 
+                    straatNr = titleCaseWord(str); 
+                    plaats = "-";
+                    postcode = "-";
+                }
+            } else {
+                return (locationName && locationName !== "-") ? `${titleCaseWord(locationName)}, -, -, NL` : "-, -, -, NL"; 
+            }
+            
+            if (plaats.toLowerCase() === "den haag" || plaats.toLowerCase() === "'s-gravenhage") plaats = "DEN HAAG";
+            if (plaats.toLowerCase() === "amsterdam") plaats = "AMSTERDAM";
+
+            return `${straatNr || "-"}, ${plaats || "-"}, ${postcode || "-"}, ${land}`;
+        }
+
+        // --- Afbeelding & Data Verwerking ---
+        async function processImage(base64ImageData, originalFileName = 'image.png') { 
+            showLoader(true); 
+            showStatus('Afbeelding analyseren en data extraheren...');
+            currentPlanningData = null; 
+            openRouteButton.classList.add('hidden');
+            routeWarningModal.classList.add('hidden');
+            
+            const parts = base64ImageData.split(',');
+            if (parts.length < 2) { 
+                showError('Ongeldige base64 data. Probeer opnieuw.'); 
+                showLoader(false); 
+                return;
+            }
+            const pureBase64 = parts[1];
+            let detectedMimeType = "image/jpeg"; 
+            try {
+                const mimePartMatch = parts[0].match(/^data:(image\/[a-zA-Z+]+);base64$/);
+                if (mimePartMatch && mimePartMatch[1]) { 
+                    detectedMimeType = mimePartMatch[1]; 
+                } else if (parts[0].includes('data:image/')) { 
+                    const mimeSubstring = parts[0].substring(parts[0].indexOf(":") + 1, parts[0].indexOf(";"));
+                    if (mimeSubstring.startsWith("image/")) { 
+                        detectedMimeType = mimeSubstring; 
+                    }
+                }
+                const supportedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+                if (!supportedMimeTypes.includes(detectedMimeType)) {
+                    console.warn(`Niet-standaard MIME type gedetecteerd: ${detectedMimeType}. Valt terug op image/jpeg.`);
+                    detectedMimeType = "image/jpeg"; 
+                }
+            } catch (e) { 
+                console.warn("Kon mimeType niet met zekerheid detecteren. Gebruikt default.", e); 
+            }
+
+            const prompt = `Je bent een OCR-assistent gespecialiseerd in transportplanningen. Analyseer de bijgevoegde afbeelding van een planningstabel.
+De tabel bevat kolommen zoals "Tijd", "Projectnummer", "Actie" (Laden/Lossen/Inpakken), "Naam" (of "Locatie", "Plaats"), "Adres" en mogelijk "Omschrijving" of "Details".
+Extraheer voor elke gegevensrij de waarden voor exact deze vijf kolommen: "Tijd", "Projectnummer", "Actie", "Locatie", "Adres".
+
+Richtlijnen voor extractie:
+1.  **Tijd**: Formatteer als HH:MM (24-uurs). Als niet te parsen, gebruik "-". Probeer ook formaten zoals "14.30" of "9u00" te herkennen.
+2.  **Projectnummer**: Verwijder spaties en speciale tekens (zoals #). Als leeg of niet aanwezig, gebruik "-".
+3.  **Actie**: Normaliseer naar "Laden", "Lossen", of "Inpakken". Als de actie onduidelijk is, of als er termen zoals "Ophalen", "Afleveren", "Collectie", "Delivery", "Verpakken", "Packing" staan, interpreteer deze correct. Bij twijfel of als het niet gespecificeerd is en niet duidelijk "Laden" of "Inpakken" is, gebruik "Lossen".
+4.  **Locatie**: Dit is de naam van het bedrijf, de klant, of de specifieke plaatsnaam (bijv. "Jumbo XYZ", "Klant A", "Centrum", "Venduehuis", "HIZKIA Den Haag"). Gebruik de waarde uit de kolom die de daadwerkelijke locatienaam bevat (vaak "Naam", "Klant" of "Locatie" genoemd in de input). Verwijder voorloop- en achterloopspaties. Als leeg, gebruik "-".
+5.  **Adres**: Formatteer ALTIJD als "Straatnaam Huisnummer, PLAATS, POSTCODE, LAND". 
+    * Straatnaam Huisnummer: Combineer straat en nummer. Titelcase voor straatnaam.
+    * PLAATS: Volledig in hoofdletters.
+    * POSTCODE: Formaat 1234 AB (met spatie). Volledig in hoofdletters.
+    * LAND: Tweeletterige landcode (bijv. NL, BE, DE). Volledig in hoofdletters. Standaard "NL" indien niet gespecificeerd.
+    * **BELANGRIJK**: Als het geëxtraheerde adresveld alleen een plaatsnaam bevat (bijv. "DEN HAAG") en GEEN straatnaam/huisnummer, probeer dan de waarde uit het "Locatie" veld te gebruiken als "Straatnaam Huisnummer" deel, gevolgd door de plaatsnaam. Bijvoorbeeld, als Locatie="Venduehuis" en Adres="DEN HAAG", formatteer dan als "Venduehuis, DEN HAAG, -, NL". Als Locatie leeg is of "-", gebruik dan alleen de plaatsnaam voor het adres, resulterend in bijvoorbeeld "-, DEN HAAG, -, NL".
+    * Als een adres onvolledig is, probeer de bekende delen correct te plaatsen en vul de rest aan met "-". Een compleet adres is het doel. Als de Locatie "HIZKIA Den Haag" (of varianten zoals "Hizdh") is of het adres "Wolga 16" bevat, gebruik dan "${DEPOT_DEN_HAAG_FULL}". Als de Locatie "HIZKIA Amsterdam" is of het adres "Scharenburg 14" bevat, gebruik dan "${DEPOT_AMSTERDAM_FULL}".
+
+Retourneer de gegevens als een JSON-array van objecten. Elke object representeert een rij in de planning.
+Voorbeeld object: { "Tijd": "09:30", "Projectnummer": "P12345", "Actie": "Laden", "Locatie": "Hoofdkantoor BV", "Adres": "Voorbeeldstraat 12, VOORBEELDSTAD, 1234 AB, NL" }
+Retourneer een lege array [] als de tabel leeg is, onherkenbaar is, of geen planningsdata bevat.`;
+
+            const payload = { 
+                contents: [ { role: "user", parts: [ { text: prompt }, { inlineData: { mimeType: detectedMimeType, data: pureBase64 } } ] } ],
+                generationConfig: { responseMimeType: "application/json", responseSchema: { 
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "Tijd": { "type": "STRING", "description": "Geformatteerde tijd HH:MM of -" }, 
+                                "Actie": { "type": "STRING", "description": "Laden, Lossen, of Inpakken" },
+                                "Locatie": { "type": "STRING", "description": "Naam van de locatie/klant of -" }, 
+                                "Adres": { "type": "STRING", "description": "Volledig geformatteerd adres of -" },
+                                "Projectnummer": { "type": "STRING", "description": "Projectnummer zonder spaties of -" }
+                            },
+                            required: ["Tijd", "Actie", "Locatie", "Adres", "Projectnummer"]
+                        }
+                    } }
+            };
+            
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+                if (!response.ok) { 
+                    const errorBody = await response.text(); 
+                    throw new Error(`API Fout (${response.status}): ${errorBody}`); 
+                }
+                const result = await response.json();
+
+                if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+                    const jsonDataString = result.candidates[0].content.parts[0].text;
+                    let extractedDataLocal = JSON.parse(jsonDataString); 
+                    
+                    if (extractedDataLocal && extractedDataLocal.length > 0) {
+                        currentPlanningData = extractedDataLocal.map(row => ({ 
+                            ...row,
+                            Adres: normalizeAndFormatAddress(row.Adres, row.Locatie), 
+                            Tijd: row.Tijd || "-", 
+                            Actie: row.Actie || "Lossen", // Standaard naar Lossen als niet herkend
+                            Locatie: row.Locatie || "-",
+                            Projectnummer: row.Projectnummer || "-"
+                        }));
+                    }
+                    
+                    if (currentPlanningData && currentPlanningData.length > 0) {
+                        showStatus('Data geëxtraheerd. Bezig met genereren van afbeelding...');
+                        generateTableImage(currentPlanningData);
+                        openRouteButton.classList.remove('hidden'); 
+                    } else {
+                        showError('Geen data gevonden in de afbeelding of de tabel is leeg. Probeer een duidelijkere afbeelding.'); 
+                        showStatus('');
+                    }
+                } else { 
+                    let detailedError = "Onbekende fout bij API respons. Controleer de console voor details.";
+                    if (result.promptFeedback?.blockReason) { 
+                        detailedError = `API verzoek geblokkeerd: ${result.promptFeedback.blockReason}. Details: ${result.promptFeedback.blockReasonMessage || ''}`; 
+                    } else if (result.candidates?.[0]?.finishReason && result.candidates[0].finishReason !== 'STOP') { 
+                        detailedError = `API afgerond met reden: ${result.candidates[0].finishReason}. Controleer de input of prompt.`; 
+                    }
+                    console.error("API Response Problem:", JSON.stringify(result, null, 2)); 
+                    showError(`Fout bij data extractie: ${detailedError}`); 
+                    showStatus('');
+                }
+            } catch (err) { 
+                console.error('Fout API call of dataverwerking:', err); 
+                showError(`Verwerkingsfout: ${err.message}. Controleer de console voor details.`); 
+                showStatus('');
+            } finally { 
+                showLoader(false); 
+            }
+        }
+
+        function generateTableImage(data) { 
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = `${FONT_SIZE}px ${FONT_FAMILY}`;
+            
+            const colWidths = {};
+            COLS_ORDER.forEach(col => {
+                const headerTextWidth = ctx.measureText(col).width;
+                const dataTextWidths = data.map(row => ctx.measureText(String(row[col] || "")).width); 
+                colWidths[col] = Math.max(headerTextWidth, ...dataTextWidths, 50 * RENDER_SCALE_FACTOR) + 2 * PAD_X; 
+            });
+
+            const metrics = ctx.measureText("Ag"); 
+            const actualFontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+            const rowHeight = (actualFontHeight || FONT_SIZE) + 2 * PAD_Y; 
+
+            const totalWidth = COLS_ORDER.reduce((sum, col) => sum + colWidths[col], 0) + GRID_W * (COLS_ORDER.length + 1);
+            const totalHeight = rowHeight * (data.length + 1) + GRID_W * (data.length + 2);
+            canvas.width = totalWidth; 
+            canvas.height = totalHeight;
+            
+            ctx.font = `${FONT_SIZE}px ${FONT_FAMILY}`; 
+            ctx.textBaseline = 'middle'; 
+            
+            ctx.fillStyle = 'white'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            let currentY = GRID_W; 
+            let currentXHeader = GRID_W; 
+            COLS_ORDER.forEach(colName => {
+                ctx.fillStyle = COLORS.Header.fill;
+                ctx.fillRect(currentXHeader, currentY, colWidths[colName], rowHeight);
+                ctx.fillStyle = COLORS.Header.text;
+                ctx.textAlign = 'left'; 
+                ctx.fillText(colName, currentXHeader + PAD_X, currentY + rowHeight / 2);
+                currentXHeader += colWidths[colName] + GRID_W;
+            });
+            currentY += rowHeight + GRID_W;
+            
+            data.forEach(row => {
+                let currentXData = GRID_W;
+                const rowAction = String(row.Actie || "Lossen"); 
+                // Gebruik de kleur voor de specifieke actie, of val terug op Lossen-kleuren als de actie onbekend is
+                const rowColors = COLORS[rowAction] || COLORS.Lossen; 
+                COLS_ORDER.forEach(colName => {
+                    ctx.fillStyle = rowColors.fill;
+                    ctx.fillRect(currentXData, currentY, colWidths[colName], rowHeight);
+                    ctx.fillStyle = rowColors.text;
+                    ctx.textAlign = 'left'; 
+                    const cellValue = String(row[colName] || ""); 
+                    ctx.fillText(cellValue, currentXData + PAD_X, currentY + rowHeight / 2);
+                    currentXData += colWidths[colName] + GRID_W;
+                });
+                currentY += rowHeight + GRID_W;
+            });
+            
+            ctx.strokeStyle = 'rgb(150,150,150)'; 
+            ctx.lineWidth = GRID_W;
+            let lineX = GRID_W / 2; 
+            for (let i = 0; i <= COLS_ORDER.length; i++) {
+                ctx.beginPath(); ctx.moveTo(lineX, GRID_W / 2);
+                ctx.lineTo(lineX, totalHeight - GRID_W / 2); ctx.stroke();
+                if (i < COLS_ORDER.length) lineX += colWidths[COLS_ORDER[i]] + GRID_W;
+            }
+            let lineY = GRID_W / 2;
+            for (let i = 0; i <= data.length + 1; i++) { 
+                ctx.beginPath(); ctx.moveTo(GRID_W / 2, lineY);
+                ctx.lineTo(totalWidth - GRID_W / 2, lineY); ctx.stroke();
+                if (i <= data.length) lineY += rowHeight + GRID_W;
+            }
+
+            outputImage.src = canvas.toDataURL('image/jpeg', JPEG_QUALITY); 
+            outputImage.onerror = () => { 
+                outputImage.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Output+Error';
+                showError('Kon gegenereerde afbeelding niet laden.');
+            };
+            outputSection.classList.remove('hidden'); 
+            showStatus('Afbeelding succesvol gegenereerd.');
+        }
+
+        // --- Google Maps Route Functies ---
+        function getAddressForMapsQuery(stop) {
+            const locationName = (stop.Locatie || "").trim();
+            // stop.Adres is de reeds genormaliseerde adresstring: "Straat Huisnr, PLAATS, POSTCODE, LAND"
+            // of met "-" voor missende delen.
+            const normalizedAddressString = (stop.Adres || "").trim(); 
+
+            // Depot checks (prioriteit)
+            const locationNameLower = locationName.toLowerCase();
+            const addressStringLowerForKeyword = normalizedAddressString.toLowerCase(); 
+            if ((locationNameLower.includes("hizkia") && (locationNameLower.includes("den haag") || locationNameLower.includes("hizdh"))) || addressStringLowerForKeyword.includes("wolga 16")) {
+                return DEPOT_DEN_HAAG_FULL;
+            }
+            if ((locationNameLower.includes("hizkia") && locationNameLower.includes("amsterdam")) || addressStringLowerForKeyword.includes("scharenburg 14")) {
+                return DEPOT_AMSTERDAM_FULL;
+            }
+            if (normalizeAddressForCompare(normalizedAddressString) === normalizeAddressForCompare(DEPOT_DEN_HAAG_FULL)) return DEPOT_DEN_HAAG_FULL;
+            if (normalizeAddressForCompare(normalizedAddressString) === normalizeAddressForCompare(DEPOT_AMSTERDAM_FULL)) return DEPOT_AMSTERDAM_FULL;
+
+            // Analyseer de genormaliseerde adresstring
+            const addressParts = normalizedAddressString.split(',').map(p => p.trim());
+            const streetComponent = addressParts[0] || ""; // Dit is "Straat Huisnr" of "-"
+            
+            // Als het genormaliseerde adres een straatcomponent heeft die niet "-" is,
+            // gebruik dan de volledige genormaliseerde adresstring.
+            // Dit volgt de gebruikerswens: "zolang er wel een straatnaam bekend is MOET deze altijd gebruikt worden."
+            if (streetComponent && streetComponent !== "-") {
+                return normalizedAddressString;
+            }
+
+            // Fallback: Geen straatcomponent in normalizedAddressString.
+            // Probeer nu de locatienaam te gebruiken, mogelijk gecombineerd met een plaats.
+            const cityComponent = addressParts[1] || ""; // PLAATS uit genormaliseerd adres, of "-"
+
+            if (locationName && locationName !== "-") { // Als er een locatienaam is
+                if (cityComponent && cityComponent !== "-") { // En een plaats in het genormaliseerde adres
+                    // Combineren Locatienaam + Stad, maar voorkom "Locatie, Locatie" als stad al in locatienaam zit
+                    if (locationName.toUpperCase().includes(cityComponent.toUpperCase())) {
+                        return titleCaseWord(locationName); // Alleen locatienaam
+                    }
+                    return `${titleCaseWord(locationName)}, ${titleCaseWord(cityComponent)}`; // Locatienaam, Stad
+                }
+                // Alleen locatienaam als er geen stad was in het genormaliseerde adres
+                return titleCaseWord(locationName);
+            }
+
+            // Als er geen straat en geen locatienaam is, maar wel een stad in het genormaliseerde adres
+            if (cityComponent && cityComponent !== "-") {
+                return titleCaseWord(cityComponent); // Alleen stad (bijv. als adres was "-, AMSTERDAM, -, NL")
+            }
+            
+            // Als normalizedAddressString zelf nog iets bevat (en niet de standaard placeholder "-, -, -, NL" of "-")
+            // Dit is een vangnet voor onverwachte formaten die niet goed gesplitst konden worden maar niet leeg zijn.
+            if (normalizedAddressString && normalizedAddressString !== "-, -, -, NL" && normalizedAddressString !== "-") {
+                return normalizedAddressString;
+            }
+
+            console.warn(`getAddressForMapsQuery: Adres voor stop (Locatie: "${locationName}", Genormaliseerd Adres: "${normalizedAddressString}") resulteert in lege query.`);
+            return ""; // Geen bruikbaar adres gevonden
+        }
+
+        function isPotentiallyIncompleteAddress(addressQueryString, originalStopLocatie, originalStopAdresNormalized) {
+            if (!addressQueryString || addressQueryString === "-") {
+                console.log(`Potentially incomplete: Query is leeg of "-"`);
+                return true; // Lege query is incompleet
+            }
+
+            const normalizedQueryForCompare = normalizeAddressForCompare(addressQueryString);
+            if (normalizedQueryForCompare === normalizeAddressForCompare(DEPOT_DEN_HAAG_FULL) ||
+                normalizedQueryForCompare === normalizeAddressForCompare(DEPOT_AMSTERDAM_FULL)) {
+                return false; // Depots zijn compleet
+            }
+
+            const queryParts = addressQueryString.split(',').map(p => p.trim());
+            const queryStreetPart = queryParts[0] || "";
+            const queryCityPart = queryParts.length > 1 ? queryParts[1] : "";
+
+            // Als het EERSTE deel van de query (vermoedelijk straat/locatie) GEEN nummer bevat,
+            // dan is het waarschijnlijk incompleet voor precieze navigatie.
+            if (!queryStreetPart.match(/\d/)) {
+                console.log(`Potentially incomplete (geen nummer in straatdeel): "${addressQueryString}" (Straatdeel: "${queryStreetPart}")`);
+                return true;
+            }
+
+            // Als er wel een nummer is, maar geen stadsdeel (en het is geen depot)
+            if (queryStreetPart.match(/\d/) && (!queryCityPart || queryCityPart === "-")) {
+                 const originalNormalizedParts = (originalStopAdresNormalized || "").split(',').map(p => p.trim());
+                 const originalNormalizedCity = originalNormalizedParts.length > 1 ? originalNormalizedParts[1] : "";
+                 // Als origineel wel een stad was, maar nu niet meer, of als er überhaupt geen stad is.
+                 if ((originalNormalizedCity && originalNormalizedCity !== "-" && (!queryCityPart || queryCityPart === "-")) || (!queryCityPart || queryCityPart === "-")) {
+                    console.log(`Potentially incomplete (stad ontbreekt): "${addressQueryString}" (Originele stad: "${originalNormalizedCity || 'N/A'}")`);
+                    return true;
+                 }
+            }
+            
+            // Als streetpart zelf "-" is (dit zou niet mogen gebeuren als er een nummer in zit, maar als extra check)
+            if (queryStreetPart === "-"){
+                console.log(`Potentially incomplete (straatdeel is "-"): "${addressQueryString}"`);
+                return true;
+            }
+
+            return false; // Lijkt redelijk compleet (heeft nummer in eerste deel en een stadsdeel)
+        }
+        
+        function checkAndShowRouteWarnings(origin, destination, uniqueStopsData) {
+            let incompleteStopsForWarning = [];
+            // Definieer stop objecten voor origin en destination voor consistentie met `isPotentiallyIncompleteAddress`
+            const originStopObject = uniqueStopsData.find(s => normalizeAddressForCompare(getAddressForMapsQuery(s)) === normalizeAddressForCompare(origin)) || { Locatie: origin, Adres: origin };
+            const destinationStopObject = uniqueStopsData.find(s => normalizeAddressForCompare(getAddressForMapsQuery(s)) === normalizeAddressForCompare(destination)) || { Locatie: destination, Adres: destination };
+
+            const allRoutePoints = [
+                { query: origin, stop: originStopObject },
+                ...uniqueStopsData
+                    .map(stop => ({ query: getAddressForMapsQuery(stop), stop: stop })) 
+                    .filter(p => p.query && normalizeAddressForCompare(p.query) !== normalizeAddressForCompare(origin) && normalizeAddressForCompare(p.query) !== normalizeAddressForCompare(destination)),
+                { query: destination, stop: destinationStopObject }
+            ].filter(p => p.query && p.query !== "-"); 
+
+            for (const point of allRoutePoints) {
+                // Geef point.stop.Adres mee als 'originalStopAdresNormalized'
+                if (isPotentiallyIncompleteAddress(point.query, point.stop.Locatie, point.stop.Adres)) {
+                    let warningName = (point.stop.Locatie && point.stop.Locatie !== "-") ? point.stop.Locatie : point.query;
+                    // Voorkom dubbele waarschuwingen voor exact dezelfde query string
+                    if (!incompleteStopsForWarning.includes(warningName)) {
+                        incompleteStopsForWarning.push(warningName);
+                    }
+                }
+            }
+
+            if (incompleteStopsForWarning.length > 0) {
+                modalWarningText.textContent = `Let op: Mogelijk onvolledige adresgegevens voor: ${incompleteStopsForWarning.join(', ')}. Controleer deze stops in Google Maps.`;
+                routeWarningModal.classList.remove('hidden');
+                return true; // Er zijn waarschuwingen
+            }
+            routeWarningModal.classList.add('hidden');
+            return false; // Geen waarschuwingen
+        }
+
+
+        function isInternationalRoute(planningData) {
+            if (!planningData) return false;
+            return planningData.some(stop => {
+                const adres = stop.Adres || ""; // Gebruik het genormaliseerde adres
+                const countryPart = adres.split(',').pop().trim().toUpperCase();
+                return countryPart !== "NL" && countryPart.length === 2; 
+            });
+        }
+
+        openRouteButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!currentPlanningData || currentPlanningData.length === 0) {
+                showError("Geen planningsdata beschikbaar om een route te maken.");
+                return;
+            }
+            startLocationQuerySection.classList.add('hidden'); 
+            routeWarningModal.classList.add('hidden'); 
+
+            const uniqueStopsData = [];
+            if (currentPlanningData.length > 0) {
+                const firstQuery = getAddressForMapsQuery(currentPlanningData[0]);
+                if (firstQuery) { // Alleen toevoegen als er een valide query is
+                    uniqueStopsData.push(currentPlanningData[0]);
+                }
+                for (let i = 1; i < currentPlanningData.length; i++) {
+                    const addrIQuery = getAddressForMapsQuery(currentPlanningData[i]);
+                    const addrPrevQuery = getAddressForMapsQuery(currentPlanningData[i-1]);
+                    
+                    // Voeg stop toe als de query valide is EN verschilt van de vorige valide query
+                    if (addrIQuery && (!addrPrevQuery || normalizeAddressForCompare(addrIQuery) !== normalizeAddressForCompare(addrPrevQuery))) {
+                        uniqueStopsData.push(currentPlanningData[i]);
+                    } else if (addrIQuery && uniqueStopsData.length === 0) { // Als de allereerste stop geen query had, maar deze wel
+                        uniqueStopsData.push(currentPlanningData[i]);
+                    }
+                }
+            }
+            
+            if (uniqueStopsData.length === 0) {
+                 showError("Geen unieke, valide stops gevonden na deduplicatie en filtering.");
+                 return;
+            }
+
+            const firstStop = uniqueStopsData[0];
+            const lastStop = uniqueStopsData[uniqueStopsData.length - 1];
+            
+            const firstStopQuery = getAddressForMapsQuery(firstStop);
+            const lastStopQuery = getAddressForMapsQuery(lastStop);
+
+            // Als na alles de first of last stop query leeg is, is er een probleem.
+            if (!firstStopQuery || !lastStopQuery) {
+                showError("Kon geen valide start- of eindpunt voor de route bepalen.");
+                return;
+            }
+
+            const normFirstAddress = normalizeAddressForCompare(firstStopQuery);
+            const normLastAddress = normalizeAddressForCompare(lastStopQuery);
+            const normDepotDH = normalizeAddressForCompare(DEPOT_DEN_HAAG_FULL);
+            const normDepotAMS = normalizeAddressForCompare(DEPOT_AMSTERDAM_FULL);
+
+            // Check of de actie van de eerste/laatste stop relevant is (Laden/Lossen/Inpakken)
+            // Voor depot logica, is "Inpakken" op het depot waarschijnlijk niet gebruikelijk als start/eindpunt van een *route*.
+            // We houden de logica voor startsAt/endsAt gefocust op Laden/Lossen bij depots.
+            const startsAtDH = firstStop.Actie === "Laden" && normFirstAddress === normDepotDH;
+            const startsAtAMS = firstStop.Actie === "Laden" && normFirstAddress === normDepotAMS;
+            const endsAtDH = lastStop.Actie === "Lossen" && normLastAddress === normDepotDH;
+            const endsAtAMS = lastStop.Actie === "Lossen" && normLastAddress === normDepotAMS;
+            const international = isInternationalRoute(uniqueStopsData);
+
+            let autoOrigin = null;
+            let autoDestination = null;
+
+            if (startsAtDH && (endsAtDH || (!endsAtAMS && !international))) {
+                autoOrigin = DEPOT_DEN_HAAG_FULL;
+                autoDestination = DEPOT_DEN_HAAG_FULL;
+            } else if (startsAtAMS && (endsAtAMS || (!endsAtDH && !international))) {
+                autoOrigin = DEPOT_AMSTERDAM_FULL;
+                autoDestination = DEPOT_AMSTERDAM_FULL;
+            } else if (endsAtDH && !startsAtAMS && !international) { 
+                autoOrigin = DEPOT_DEN_HAAG_FULL;
+                autoDestination = DEPOT_DEN_HAAG_FULL;
+            } else if (endsAtAMS && !startsAtDH && !international) { 
+                autoOrigin = DEPOT_AMSTERDAM_FULL;
+                autoDestination = DEPOT_AMSTERDAM_FULL;
+            }
+            
+            routeParamsForModal = {
+                origin: autoOrigin || firstStopQuery,
+                destination: autoDestination || lastStopQuery,
+                planningStops: uniqueStopsData 
+            };
+
+            if (checkAndShowRouteWarnings(routeParamsForModal.origin, routeParamsForModal.destination, routeParamsForModal.planningStops)) {
+                return; 
+            }
+
+            if (autoOrigin && autoDestination) { 
+                generateAndOpenMapsUrl(routeParamsForModal.origin, routeParamsForModal.destination, routeParamsForModal.planningStops);
+            } else { 
+                 startLocationQuerySection.classList.remove('hidden');
+                 startLocationQuerySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        modalProceedButton.addEventListener('click', () => {
+            routeWarningModal.classList.add('hidden');
+            if (routeParamsForModal) {
+                const { origin, destination, planningStops } = routeParamsForModal;
+                
+                const isAutoOriginDepot = normalizeAddressForCompare(origin) === normalizeAddressForCompare(DEPOT_DEN_HAAG_FULL) || normalizeAddressForCompare(origin) === normalizeAddressForCompare(DEPOT_AMSTERDAM_FULL);
+                const firstPlanningStopQuery = planningStops.length > 0 ? getAddressForMapsQuery(planningStops[0]) : "";
+
+
+                if (!isAutoOriginDepot && origin === firstPlanningStopQuery) { 
+                    startLocationQuerySection.classList.remove('hidden');
+                    startLocationQuerySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    generateAndOpenMapsUrl(origin, destination, planningStops);
+                }
+            }
+            routeParamsForModal = null; 
+        });
+
+        modalCancelButton.addEventListener('click', () => {
+            routeWarningModal.classList.add('hidden');
+            routeParamsForModal = null; 
+        });
+
+
+        confirmStartLocationButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const selectedOption = document.querySelector('input[name="startLocation"]:checked');
+            if (!selectedOption) {
+                showError("Selecteer een startpunt optie.");
+                return;
+            }
+            
+            let uniqueStopsForConfirmation = routeParamsForModal ? routeParamsForModal.planningStops : [];
+            if (!uniqueStopsForConfirmation || uniqueStopsForConfirmation.length === 0) {
+                if (currentPlanningData && currentPlanningData.length > 0) {
+                    uniqueStopsForConfirmation = [];
+                    const firstQuery = getAddressForMapsQuery(currentPlanningData[0]);
+                    if (firstQuery) uniqueStopsForConfirmation.push(currentPlanningData[0]);
+                    for (let i = 1; i < currentPlanningData.length; i++) {
+                        const addrIQuery = getAddressForMapsQuery(currentPlanningData[i]);
+                        const addrPrevQuery = getAddressForMapsQuery(currentPlanningData[i-1]);
+                        if (addrIQuery && (!addrPrevQuery || normalizeAddressForCompare(addrIQuery) !== normalizeAddressForCompare(addrPrevQuery))) {
+                             uniqueStopsForConfirmation.push(currentPlanningData[i]);
+                        } else if (addrIQuery && uniqueStopsForConfirmation.length === 0) {
+                            uniqueStopsForConfirmation.push(currentPlanningData[i]);
+                        }
+                    }
+                }
+            }
+
+             if (!uniqueStopsForConfirmation || uniqueStopsForConfirmation.length === 0) {
+                 showError("Geen unieke stops gevonden voor routegeneratie.");
+                 return;
+            }
+
+            let origin, destination;
+            const international = isInternationalRoute(uniqueStopsForConfirmation);
+            const firstPlanningAddressQuery = getAddressForMapsQuery(uniqueStopsForConfirmation[0]);
+            const lastPlanningAddressQuery = getAddressForMapsQuery(uniqueStopsForConfirmation[uniqueStopsForConfirmation.length - 1]);
+
+            if (!firstPlanningAddressQuery || !lastPlanningAddressQuery) {
+                showError("Kon geen valide start- of eindpunt bepalen uit de planning.");
+                return;
+            }
+
+            switch (selectedOption.value) {
+                case "DEPOT_DH":
+                    origin = DEPOT_DEN_HAAG_FULL;
+                    destination = international ? lastPlanningAddressQuery : DEPOT_DEN_HAAG_FULL;
+                    break;
+                case "DEPOT_AMS":
+                    origin = DEPOT_AMSTERDAM_FULL;
+                    destination = international ? lastPlanningAddressQuery : DEPOT_AMSTERDAM_FULL;
+                    break;
+                case "AS_PLANNED":
+                    origin = firstPlanningAddressQuery;
+                    destination = lastPlanningAddressQuery;
+                    break;
+                default:
+                    showError("Ongeldige selectie.");
+                    return;
+            }
+            
+            routeParamsForModal = { origin, destination, planningStops: uniqueStopsForConfirmation }; 
+            startLocationQuerySection.classList.add('hidden');
+
+            if (!checkAndShowRouteWarnings(origin, destination, uniqueStopsForConfirmation)) {
+                 generateAndOpenMapsUrl(origin, destination, uniqueStopsForConfirmation);
+            }
+        });
+
+        cancelStartLocationButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            startLocationQuerySection.classList.add('hidden');
+            routeWarningModal.classList.add('hidden'); 
+            routeParamsForModal = null;
+        });
+
+        function generateAndOpenMapsUrl(origin, destination, planningStops) {
+            if (!origin || !destination || !planningStops || planningStops.length === 0) {
+                showError("Kan Google Maps URL niet genereren: onvoldoende data.");
+                return;
+            }
+
+            const waypointsRawQueries = planningStops
+                .map(stop => getAddressForMapsQuery(stop))
+                .filter(Boolean); 
+            
+            const waypointsFilteredQueries = waypointsRawQueries.filter(query => 
+                query && 
+                normalizeAddressForCompare(query) !== normalizeAddressForCompare(origin) && 
+                normalizeAddressForCompare(query) !== normalizeAddressForCompare(destination)
+            );
+            
+            const finalWaypointsQueries = [];
+            if (waypointsFilteredQueries.length > 0) {
+                finalWaypointsQueries.push(waypointsFilteredQueries[0]);
+                for (let i = 1; i < waypointsFilteredQueries.length; i++) {
+                    if (normalizeAddressForCompare(waypointsFilteredQueries[i]) !== normalizeAddressForCompare(waypointsFilteredQueries[i-1])) {
+                        finalWaypointsQueries.push(waypointsFilteredQueries[i]);
+                    }
+                }
+            }
+            
+            const baseUrl = "https://www.google.com/maps/dir/?api=1";
+            let mapsUrl = `${baseUrl}&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
+            
+            if (finalWaypointsQueries.length > 0) {
+                mapsUrl += `&waypoints=${finalWaypointsQueries.map(wp => encodeURIComponent(wp)).join('|')}`;
+            }
+            mapsUrl += "&travelmode=driving";
+            
+            console.log("Opening Google Maps URL:", mapsUrl);
+            window.open(mapsUrl, '_blank');
+            routeParamsForModal = null; 
+        }
+
+    </script>
+</body>
+</html>
+
